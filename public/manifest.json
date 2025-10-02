@@ -1,0 +1,40 @@
+{
+    "name": "Mi primera app pwa",
+    "short_name": "PWA",
+    "start_url":"/",
+    "display":"standalone",
+    "background_color":"#ffffff",
+    "theme":"#000000",
+    "orientation":"portrait-primary",
+    "description":"",
+    "icons":[
+        {"src":"/icons/",
+    "sizes":"32x32"}
+    ],
+    "splash_pages":null
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
