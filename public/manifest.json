@@ -8,8 +8,10 @@
     "orientation":"portrait-primary",
     "description":"",
     "icons":[
-        {"src":"/icons/",
-    "sizes":"32x32"}
+        { "src": "/icons/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any maskable"}
     ],
     "splash_pages":null
 }
