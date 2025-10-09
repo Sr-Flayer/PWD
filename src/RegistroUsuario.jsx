@@ -1,25 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Container, Box, Grid, Typography, TextField, Button, Alert,
-  FormControl, InputLabel, Select, MenuItem, Chip
+  FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 
-// Función para esperar a que offlineManager esté disponible
-const waitForOfflineManager = async () => {
-  let attempts = 0;
-  const maxAttempts = 50; // 5 segundos máximo
-  
-  while (!window.offlineManager && attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
-  }
-  
-  if (!window.offlineManager) {
-    throw new Error('offlineManager no se pudo cargar');
-  }
-};
-
-function App() {
+function RegistroUsuario() {
   const [nombre, setNombre] = useState('');
   const [nombreError, setNombreError] = useState(false);
 
@@ -40,82 +25,6 @@ function App() {
 
   const [message, setMessage] = useState('');
   const [variant, setVariant] = useState('success');
-  const [pendingPosts, setPendingPosts] = useState(0);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  // Funciones para manejar IndexedDB y sincronización
-  const saveFailedPost = async (postData) => {
-    try {
-      // Esperar a que offlineManager esté disponible
-      await waitForOfflineManager();
-      
-      // Guardar POST fallido
-      await window.offlineManager.saveFailedPost({
-        url: 'https://api-condominios-noti.onrender.com/api/insertar_usuario',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(postData)
-      });
-      
-      // Registrar tarea de sincronización
-      await window.offlineManager.registerSyncTask();
-      setPendingPosts(prev => prev + 1);
-    } catch (error) {
-      console.error('Error guardando POST fallido:', error);
-    }
-  };
-
-  const checkPendingPosts = async () => {
-    try {
-      // Esperar a que offlineManager esté disponible
-      await waitForOfflineManager();
-      
-      // Obtener conteo de POSTs pendientes
-      const pendingCount = await window.offlineManager.getPendingCount();
-      setPendingPosts(pendingCount);
-    } catch (error) {
-      console.error('Error verificando POSTs pendientes:', error);
-    }
-  };
-
-  const processPendingTasks = async () => {
-    try {
-      // Esperar a que offlineManager esté disponible
-      await waitForOfflineManager();
-      
-      // Procesar POSTs pendientes
-      await window.offlineManager.processFailedPosts();
-      
-      // Actualizar conteo después del procesamiento
-      await checkPendingPosts();
-    } catch (error) {
-      console.error('Error procesando tareas pendientes:', error);
-    }
-  };
-
-  // Efectos
-  useEffect(() => {
-    checkPendingPosts();
-    
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Cuando se restablece la conexión, procesar tareas pendientes
-      processPendingTasks();
-    };
-    const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    // Verificar tareas pendientes periódicamente
-    const interval = setInterval(checkPendingPosts, 10000); // Cada 10 segundos
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      clearInterval(interval);
-    };
-  }, []);
 
   // Validaciones simples
   const validateNombre = () => setNombreError(!nombre.trim());
@@ -172,28 +81,8 @@ function App() {
       }
     } catch (error) {
       console.error('Error al enviar el usuario:', error);
-      
-      // Si no hay conexión o hay error de red, guardar en IndexedDB
-      if (!navigator.onLine || error.name === 'TypeError') {
-        try {
-          await saveFailedPost({ nombre, apellido, telefono, departamento, contra, rol });
-          setMessage('Sin conexión. El usuario se guardará localmente y se sincronizará cuando se restablezca la conexión.');
-          setVariant('warning');
-          setNombre('');
-          setApellido('');
-          setTelefono('+52');
-          setDepartamento('');
-          setContra('');
-          setRol('');
-        } catch (dbError) {
-          console.error('Error guardando en IndexedDB:', dbError);
-          setMessage('Error al registrar el usuario y no se pudo guardar localmente.');
-          setVariant('error');
-        }
-      } else {
-        setMessage('Error al registrar el usuario.');
-        setVariant('error');
-      }
+      setMessage('Error al registrar el usuario.');
+      setVariant('error');
     }
   };
 
@@ -207,23 +96,9 @@ function App() {
           alignItems: 'center',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography component="h1" variant="h5">
-            Registrar Usuario
-          </Typography>
-          <Chip 
-            label={isOnline ? 'En línea' : 'Sin conexión'} 
-            color={isOnline ? 'success' : 'error'} 
-            size="small" 
-          />
-          {pendingPosts > 0 && (
-            <Chip 
-              label={`${pendingPosts} pendientes`} 
-              color="warning" 
-              size="small" 
-            />
-          )}
-        </Box>
+        <Typography component="h1" variant="h5" gutterBottom>
+          Registrar Usuario
+        </Typography>
 
         <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 3 }}>
           <Grid container spacing={2}>
@@ -333,4 +208,4 @@ function App() {
   );
 }
 
-export default App;
+export default RegistroUsuario;
