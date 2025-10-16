@@ -4,7 +4,8 @@ import {
   FormControl, InputLabel, Select, MenuItem, Chip
 } from '@mui/material';
 
-// Función para esperar a que offlineManager esté disponible
+// Función p
+// ara esperar a que offlineManager esté disponible
 const waitForOfflineManager = async () => {
   let attempts = 0;
   const maxAttempts = 50; // 5 segundos máximo
@@ -93,9 +94,27 @@ function App() {
     }
   };
 
+
   // Efectos
   useEffect(() => {
     checkPendingPosts();
+
+    // Limpiar suscripciones push existentes
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then(async (reg) => {
+        try {
+          // Obtener suscripción actual
+          const subscription = await reg.pushManager.getSubscription();
+          if (subscription) {
+            // Cancelar suscripción existente
+            await subscription.unsubscribe();
+            console.log("Suscripción push cancelada");
+          }
+        } catch (error) {
+          console.log("No había suscripción push activa");
+        }
+      });
+    }
     
     const handleOnline = () => {
       setIsOnline(true);
@@ -322,6 +341,7 @@ function App() {
             Registrar
           </Button>
         </Box>
+
 
         {message && (
           <Alert severity={variant} sx={{ mt: 2 }}>
