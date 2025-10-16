@@ -43,6 +43,9 @@ function App() {
   const [variant, setVariant] = useState('success');
   const [pendingPosts, setPendingPosts] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [notificationSupported, setNotificationSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState('default');
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // Funciones para manejar IndexedDB y sincronización
   const saveFailedPost = async (postData) => {
@@ -94,27 +97,180 @@ function App() {
     }
   };
 
+  // Funciones para manejar notificaciones push
+  const waitForPushManager = async () => {
+    let attempts = 0;
+    const maxAttempts = 50;
+    
+    while (!window.pushNotificationManager && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!window.pushNotificationManager) {
+      throw new Error('pushNotificationManager no se pudo cargar');
+    }
+  };
+
+  const checkNotificationStatus = async () => {
+    try {
+      await waitForPushManager();
+      const status = await window.pushNotificationManager.getSubscriptionStatus();
+      
+      setNotificationSupported(status.supported);
+      setNotificationPermission(status.permission);
+      setIsSubscribed(status.subscribed);
+      
+      return status;
+    } catch (error) {
+      console.error('Error verificando estado de notificaciones:', error);
+      setNotificationSupported(false);
+    }
+  };
+
+  const handleSubscribeToNotifications = async () => {
+    try {
+      await waitForPushManager();
+      await window.pushNotificationManager.subscribeToPushNotifications();
+      
+      setMessage('¡Notificaciones push activadas exitosamente!');
+      setVariant('success');
+      setIsSubscribed(true);
+      setNotificationPermission('granted');
+      
+      // Verificar estado actualizado
+      await checkNotificationStatus();
+    } catch (error) {
+      console.error('Error suscribiéndose a notificaciones:', error);
+      setMessage(`Error activando notificaciones: ${error.message}`);
+      setVariant('error');
+    }
+  };
+
+  const handleUnsubscribeFromNotifications = async () => {
+    try {
+      await waitForPushManager();
+      await window.pushNotificationManager.unsubscribeFromPushNotifications();
+      
+      setMessage('Notificaciones push desactivadas');
+      setVariant('info');
+      setIsSubscribed(false);
+      
+      // Verificar estado actualizado
+      await checkNotificationStatus();
+    } catch (error) {
+      console.error('Error desuscribiéndose de notificaciones:', error);
+      setMessage(`Error desactivando notificaciones: ${error.message}`);
+      setVariant('error');
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      await waitForPushManager();
+      await window.pushNotificationManager.sendTestNotification();
+      
+      setMessage('Notificación de prueba enviada');
+      setVariant('success');
+    } catch (error) {
+      console.error('Error enviando notificación de prueba:', error);
+      setMessage(`Error enviando notificación de prueba: ${error.message}`);
+      setVariant('error');
+    }
+  };
+
+  const handleTestPushNotification = async () => {
+    try {
+      // Simular notificación push sin backend
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Crear notificación push simulada
+      const notificationData = {
+        title: '🏢 Condominio - Nuevo Usuario Registrado',
+        body: 'Se ha registrado un nuevo usuario en el departamento 302',
+        icon: '/icons/favicon-32x32.png',
+        badge: '/icons/favicon-16x16.png',
+        tag: 'user-registered',
+        requireInteraction: true,
+        data: {
+          type: 'user_registered',
+          department: '302',
+          timestamp: new Date().toISOString()
+        },
+        actions: [
+          {
+            action: 'view',
+            title: 'Ver Usuario',
+            icon: '/icons/favicon-16x16.png'
+          },
+          {
+            action: 'close',
+            title: 'Cerrar',
+            icon: '/icons/favicon-16x16.png'
+          }
+        ]
+      };
+      
+      await registration.showNotification(notificationData.title, notificationData);
+      
+      setMessage('Notificación push simulada enviada');
+      setVariant('success');
+    } catch (error) {
+      console.error('Error enviando notificación push simulada:', error);
+      setMessage(`Error: ${error.message}`);
+      setVariant('error');
+    }
+  };
+
+  const handleTestMultipleNotifications = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Crear múltiples notificaciones de prueba
+      const notifications = [
+        {
+          title: '🔧 Mantenimiento Programado',
+          body: 'El elevador estará fuera de servicio mañana de 9:00 a 12:00',
+          tag: 'maintenance-1'
+        },
+        {
+          title: '💰 Recordatorio de Pago',
+          body: 'Tu cuota mensual vence en 3 días',
+          tag: 'payment-reminder'
+        },
+        {
+          title: '🚨 Alerta de Seguridad',
+          body: 'Se reportó actividad sospechosa en el estacionamiento',
+          tag: 'security-alert'
+        }
+      ];
+      
+      // Enviar notificaciones con delay
+      for (let i = 0; i < notifications.length; i++) {
+        setTimeout(async () => {
+          await registration.showNotification(notifications[i].title, {
+            ...notifications[i],
+            icon: '/icons/favicon-32x32.png',
+            badge: '/icons/favicon-16x16.png',
+            requireInteraction: true
+          });
+        }, i * 2000); // 2 segundos entre cada notificación
+      }
+      
+      setMessage('3 notificaciones de prueba programadas');
+      setVariant('success');
+    } catch (error) {
+      console.error('Error enviando múltiples notificaciones:', error);
+      setMessage(`Error: ${error.message}`);
+      setVariant('error');
+    }
+  };
+
 
   // Efectos
   useEffect(() => {
     checkPendingPosts();
-
-    // Limpiar suscripciones push existentes
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.ready.then(async (reg) => {
-        try {
-          // Obtener suscripción actual
-          const subscription = await reg.pushManager.getSubscription();
-          if (subscription) {
-            // Cancelar suscripción existente
-            await subscription.unsubscribe();
-            console.log("Suscripción push cancelada");
-          }
-        } catch (error) {
-          console.log("No había suscripción push activa");
-        }
-      });
-    }
+    checkNotificationStatus();
     
     const handleOnline = () => {
       setIsOnline(true);
@@ -243,6 +399,79 @@ function App() {
             />
           )}
         </Box>
+
+        {/* Sección de notificaciones push */}
+        {notificationSupported && (
+          <Box sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+            <Typography variant="h6" gutterBottom>
+              Notificaciones Push
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {!isSubscribed ? (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={handleSubscribeToNotifications}
+                  disabled={notificationPermission === 'denied'}
+                >
+                  Activar Notificaciones
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  size="small"
+                  onClick={handleUnsubscribeFromNotifications}
+                >
+                  Desactivar Notificaciones
+                </Button>
+              )}
+              
+              <Button
+                variant="outlined"
+                color="info"
+                size="small"
+                onClick={handleTestNotification}
+                disabled={notificationPermission !== 'granted'}
+              >
+                Prueba Básica
+              </Button>
+              
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                onClick={handleTestPushNotification}
+                disabled={notificationPermission !== 'granted'}
+              >
+                Prueba Push
+              </Button>
+              
+              <Button
+                variant="outlined"
+                color="secondary"
+                size="small"
+                onClick={handleTestMultipleNotifications}
+                disabled={notificationPermission !== 'granted'}
+              >
+                Múltiples Notificaciones
+              </Button>
+              
+              <Chip 
+                label={isSubscribed ? 'Notificaciones activas' : 'Notificaciones inactivas'} 
+                color={isSubscribed ? 'success' : 'default'} 
+                size="small" 
+              />
+            </Box>
+            
+            {notificationPermission === 'denied' && (
+              <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                Los permisos de notificación están bloqueados. Por favor, habilítalos en la configuración del navegador.
+              </Typography>
+            )}
+          </Box>
+        )}
 
         <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 3 }}>
           <Grid container spacing={2}>

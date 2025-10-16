@@ -1,12 +1,18 @@
-const CACHE_NAME = 'app-cache-v2';
+const CACHE_NAME = 'app-cache-v3';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/vite.svg',
   '/index-Cujft3z8.js',
   '/index-D8b4DHJx.css',
-  '/RegistroUsuario.js'
+  '/RegistroUsuario.js',
+  '/offlineManager.js',
+  '/pushNotifications.js',
+  '/asyncTasks.js'
 ];
+
+// Claves VAPID para notificaciones push
+const VAPID_PUBLIC_KEY = 'BFTlx30Q3G-uysw8dTloMA0mlCNMeTfqlvbRHQZJYXxDN0K8z5VdaU4PplJv8DiSkb6ZhWSFDg5wsLxIXihvLnc';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -150,6 +156,69 @@ async function syncFailedPosts() {
     console.error('Error POSTs fallidos:', error);
   }
 }
+
+// ------------------ Push Notifications ------------------
+self.addEventListener('push', (event) => {
+  console.log('Push event recibido:', event);
+  
+  let notificationData = {
+    title: 'Condominio - Nueva Notificación',
+    body: 'Tienes una nueva notificación del condominio',
+    icon: '/icons/favicon-32x32.png',
+    badge: '/icons/favicon-16x16.png',
+    tag: 'condominio-notification',
+    requireInteraction: true,
+    actions: [
+      {
+        action: 'open',
+        title: 'Abrir App',
+        icon: '/icons/favicon-16x16.png'
+      },
+      {
+        action: 'close',
+        title: 'Cerrar',
+        icon: '/icons/favicon-16x16.png'
+      }
+    ]
+  };
+
+  // Si hay datos en el push, usarlos
+  if (event.data) {
+    try {
+      const pushData = event.data.json();
+      notificationData = { ...notificationData, ...pushData };
+    } catch (e) {
+      console.error('Error parseando datos del push:', e);
+    }
+  }
+
+  const promiseChain = self.registration.showNotification(notificationData.title, notificationData);
+  event.waitUntil(promiseChain);
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notificación clickeada:', event);
+  
+  event.notification.close();
+  
+  if (event.action === 'open' || !event.action) {
+    // Abrir la aplicación
+    event.waitUntil(
+      clients.matchAll({ type: 'window' }).then(clientList => {
+        // Si ya hay una ventana abierta, enfocarla
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Si no hay ventana abierta, crear una nueva
+        if (clients.openWindow) {
+          return clients.openWindow('/');
+        }
+      })
+    );
+  }
+});
 
 // Funciones adicionales para manejar POSTs fallidos
 async function getAllFailedPosts() {
